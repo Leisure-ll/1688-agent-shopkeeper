@@ -62,4 +62,4 @@ def build_plan_from_payload(payload: Dict[str, Any], goal: str, note: str) -> Pl
         )
         for item in payload["tasks"]
     ]
-    return Plan(id=payload.get("id") or new_id("plan"), goal=goal, status="init", tasks=tasks, notes=[note, "schema validated"])
+    return Plan(id=payload.get("id") or new_id("plan"), goal=goal, status="intent", tasks=tasks, notes=[note, "schema validated"])

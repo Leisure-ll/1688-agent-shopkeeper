@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict
 
 from agent.core.hooks import AgentEventHooks
-from agent.core.state import Plan
+from agent.core.state import Plan, Task
 from agent.persist.plan_store import PlanStore
 from agent.planning.goal_drift import detect_goal_drift
 from agent.runtime.dag.executor import DAGPlanExecutor
@@ -40,6 +40,10 @@ class PlanModeFSM:
     def run(self, plan: Plan, auto_confirm: bool = False) -> Plan:
         self.store.save(plan)
         self.hooks.on_plan_created(plan_id=plan.id, goal=plan.goal, task_count=len(plan.tasks))
+        if plan.status == "intent":
+            self._classify_intent(plan)
+        if plan.status == "failed":
+            return plan
         if auto_confirm:
             self.transition(plan, "confirmed", "auto confirmed")
         if plan.status in {"init", "intent"}:
@@ -64,6 +68,24 @@ class PlanModeFSM:
         result = self.worker.run(task, context)
         self.detect_goal_drift(plan, result)
         return result
+
+    def _classify_intent(self, plan: Plan) -> None:
+        task = Task("intent_classifier", "判断目标复杂度", "classify_intent", {"goal": plan.goal})
+        context: Dict[str, object] = {}
+        try:
+            task.status = "running"
+            self.hooks.on_task_updated(plan_id=plan.id, task_id=task.id, status=task.status)
+            result = self._run_task(plan, task, context)
+            task.result = result
+            task.status = "done"
+            plan.notes.append(f"intent: {result.get('complexity')} / {result.get('route')}")
+            self._on_task_update(plan, task)
+            self.transition(plan, "init", "intent classified")
+        except Exception as exc:
+            task.error = str(exc)
+            task.status = "failed"
+            self._on_task_update(plan, task)
+            self.transition(plan, "failed", str(exc))
 
     def _on_task_update(self, plan: Plan, task) -> None:
         self.hooks.on_task_updated(plan_id=plan.id, task_id=task.id, status=task.status)

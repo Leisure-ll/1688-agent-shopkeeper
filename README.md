@@ -9,6 +9,7 @@
 ## Highlights
 
 - Plan 模式状态机：支持 `intent/init/confirmed/doing/updating/done/failed/rejected` 流转、任务 checkpoint 和失败状态保存。
+- Intent 路由：`intent` 状态先调用 `classify_intent`，区分 simple/complex/risky，再生成不同任务规模。
 - Planner/Worker 分离：Planner 只负责规划，Worker 根据任务动态创建 SubAgent 执行。
 - DAG 执行引擎：Plan 支持 `depends_on`，运行时会做拓扑调度、循环依赖检测和失败依赖阻断。
 - SubAgent 上下文隔离：每个 SubAgent 只获得当前任务、局部上下文和角色工具白名单。

@@ -7,6 +7,7 @@ from agent.core.state import Plan, Task
 from agent.memory.store import MemoryStore
 from agent.memory.working import WorkingMemory
 from agent.memory.writer import MemoryWriter
+from agent.planning.intent import IntentClassifier
 from agent.persist.plan_store import PlanStore
 from agent.planning.planner import HeuristicPlanner, LLMPlanner
 from agent.planning.validator import validate_plan_payload
@@ -21,7 +22,9 @@ class AgentCoreTest(unittest.TestCase):
         memory = MemoryStore(tmp)
         approvals = ApprovalStore(tmp)
         tools = MockShopkeeperTools(tmp)
+        intent_classifier = IntentClassifier()
         registry = ToolRegistry()
+        registry.register("classify_intent", lambda goal: intent_classifier.classify(goal))
         registry.register("search_products", tools.search_products)
         registry.register("list_shops", tools.list_shops)
         registry.register("publish_dry_run", tools.publish_dry_run)
@@ -43,6 +46,20 @@ class AgentCoreTest(unittest.TestCase):
     def test_formal_publish_requires_approval(self):
         plan = HeuristicPlanner().create_plan("帮我正式铺货夏季连衣裙", [])
         self.assertIn("request_publish_approval", [task.tool for task in plan.tasks])
+        self.assertEqual(plan.status, "intent")
+
+    def test_simple_shop_intent_creates_small_plan(self):
+        plan = HeuristicPlanner().create_plan("查一下我有哪些店铺", [])
+        self.assertEqual([task.tool for task in plan.tasks], ["memory_search", "list_shops"])
+        self.assertIn("intent preplan: simple / shop_lookup", plan.notes)
+
+    def test_intent_state_runs_classifier_before_execution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, _, _, store, worker, hooks = self.runtime(tmp)
+            plan = HeuristicPlanner().create_plan("查一下我有哪些店铺", [])
+            result = PlanModeFSM(store, worker, hooks).run(plan, auto_confirm=True)
+            self.assertEqual(result.status, "done")
+            self.assertTrue(any(note.startswith("intent: simple / shop_lookup") for note in result.notes))
 
     def test_memory_source_and_index(self):
         with tempfile.TemporaryDirectory() as tmp:

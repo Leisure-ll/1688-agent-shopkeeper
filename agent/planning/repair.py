@@ -18,7 +18,7 @@ class FallbackPlanRepairer:
         return Plan(
             id=new_id("plan"),
             goal=goal,
-            status="init",
+            status="intent",
             tasks=tasks,
             notes=["fallback repair planner", *[f"{issue.path}: {issue.message}" for issue in issues]],
         )

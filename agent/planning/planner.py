@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, List, Protocol
 
 from agent.core.state import Plan, Task, new_id
+from agent.planning.intent import IntentClassifier
 from agent.planning.repair import FallbackPlanRepairer
 from agent.planning.schemas import PlanValidationIssue
 from agent.planning.validator import build_plan_from_payload, validate_plan_payload
@@ -14,17 +15,26 @@ class JSONPlannerProvider(Protocol):
 
 class HeuristicPlanner:
     def create_plan(self, goal: str, memories: List[Dict[str, str]] = None) -> Plan:
-        formal_publish = any(word in goal for word in ["正式铺货", "确认铺货", "真的铺货", "执行铺货"])
-        query = goal
-        tasks = [
-            Task(new_id("task"), "检索历史经营记忆", "memory_search", {"query": goal}),
-            Task(new_id("task"), "搜索候选商品", "search_products", {"query": query, "channel": "douyin", "limit": 5}),
-            Task(new_id("task"), "查询可用店铺", "list_shops", {"channel": "douyin"}),
-        ]
-        publish_tool = "request_publish_approval" if formal_publish else "publish_dry_run"
-        tasks.append(Task(new_id("task"), "铺货预检查" if not formal_publish else "申请正式铺货审批", publish_tool, {}))
-        tasks.append(Task(new_id("task"), "沉淀选品决策记忆", "write_memory", {"kind": "selection"}))
-        return Plan(id=new_id("plan"), goal=goal, status="init", tasks=tasks, notes=["heuristic planner"])
+        intent = IntentClassifier().classify(goal)
+        tasks = [Task(new_id("task"), "检索历史经营记忆", "memory_search", {"query": goal})]
+        if intent["route"] == "shop_lookup":
+            tasks.append(Task(new_id("task"), "查询可用店铺", "list_shops", {"channel": "douyin"}))
+        else:
+            search = Task(new_id("task"), "搜索候选商品", "search_products", {"query": goal, "channel": "douyin", "limit": 5})
+            tasks.append(search)
+            if intent["needs_publish"]:
+                shop = Task(new_id("task"), "查询可用店铺", "list_shops", {"channel": "douyin"})
+                publish_tool = "request_publish_approval" if intent["needs_approval"] else "publish_dry_run"
+                publish = Task(new_id("task"), "申请正式铺货审批" if intent["needs_approval"] else "铺货预检查", publish_tool, {}, [search.id, shop.id])
+                memory = Task(new_id("task"), "沉淀选品决策记忆", "write_memory", {"kind": "selection"}, [publish.id])
+                tasks.extend([shop, publish, memory])
+        return Plan(
+            id=new_id("plan"),
+            goal=goal,
+            status="intent",
+            tasks=tasks,
+            notes=["heuristic planner", f"intent preplan: {intent['complexity']} / {intent['route']}"],
+        )
 
 
 class LLMPlanner:

@@ -11,6 +11,7 @@ from agent.observability.instrument import HookInstrument
 from agent.observability.langfuse import LangfuseObserver
 from agent.observability.observer import JSONLObserver
 from agent.persist.plan_store import PlanStore
+from agent.planning.intent import IntentClassifier
 from agent.runtime.worker import AgentWorker
 from agent.safety.approval import ApprovalStore
 from agent.tools.mock_shopkeeper import MockShopkeeperTools
@@ -45,7 +46,9 @@ def create_runtime(settings: AgentSettings) -> AgentRuntime:
     retriever = MemoryRetriever(memory)
     approvals = ApprovalStore(settings.workspace)
     shopkeeper = MockShopkeeperTools(settings.workspace) if settings.mock else RealShopkeeperTools()
+    intent_classifier = IntentClassifier()
     registry = ToolRegistry()
+    registry.register("classify_intent", lambda goal: intent_classifier.classify(goal))
     registry.register("search_products", shopkeeper.search_products)
     registry.register("list_shops", shopkeeper.list_shops)
     registry.register("publish_dry_run", shopkeeper.publish_dry_run)

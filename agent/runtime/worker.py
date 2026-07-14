@@ -9,6 +9,8 @@ from agent.tools.registry import ToolRegistry
 
 class DeterministicWorkerPolicy:
     def role_for(self, task: Task) -> str:
+        if task.tool == "classify_intent":
+            return "router"
         if task.tool in {"search_products", "memory_search"}:
             return "selector"
         if task.tool == "list_shops":

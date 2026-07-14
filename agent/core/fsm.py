@@ -27,21 +27,22 @@ class PlanModeFSM:
         old = plan.status
         plan.status = to_state
         plan.updated_at = datetime.utcnow().isoformat() + "Z"
-        self.hooks.on_state_transition(plan_id=plan.id, old=old, new=to_state, reason=reason)
+        self.hooks.on_state_transition(plan_id=plan.id, session_id=plan.session_id, old=old, new=to_state, reason=reason)
         checkpoint = self.store.checkpoint(plan, reason)
-        self.hooks.on_checkpoint(plan_id=plan.id, path=str(checkpoint), reason=reason)
+        self.hooks.on_checkpoint(plan_id=plan.id, session_id=plan.session_id, path=str(checkpoint), reason=reason)
 
     def detect_goal_drift(self, plan: Plan, task_result: Dict[str, object]) -> bool:
         reason = detect_goal_drift(plan.goal, task_result)
         if reason:
             plan.drift_count += 1
-            self.hooks.on_goal_drift(plan_id=plan.id, reason=reason, drift_count=plan.drift_count)
+            self.hooks.on_goal_drift(plan_id=plan.id, session_id=plan.session_id, reason=reason, drift_count=plan.drift_count)
             return True
         return False
 
     def run(self, plan: Plan, auto_confirm: bool = False) -> Plan:
         self.store.save(plan)
-        self.hooks.on_plan_created(plan_id=plan.id, goal=plan.goal, task_count=len(plan.tasks))
+        self.worker.session_id = plan.session_id
+        self.hooks.on_plan_created(plan_id=plan.id, session_id=plan.session_id, goal=plan.goal, task_count=len(plan.tasks))
         if plan.status == "intent":
             self._classify_intent(plan)
         if plan.status == "failed":
@@ -103,6 +104,6 @@ class PlanModeFSM:
             self.transition(plan, "failed", str(exc))
 
     def _on_task_update(self, plan: Plan, task) -> None:
-        self.hooks.on_task_updated(plan_id=plan.id, task_id=task.id, status=task.status)
+        self.hooks.on_task_updated(plan_id=plan.id, session_id=plan.session_id, task_id=task.id, status=task.status)
         if task.status in {"done", "failed", "blocked"}:
             self.store.checkpoint(plan, f"task {task.id} {task.status}")

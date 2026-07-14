@@ -40,10 +40,11 @@ class AgentWorker:
         self.workspace = workspace
         self.hooks = hooks
         self.policy = policy or DeterministicWorkerPolicy()
+        self.session_id = ""
 
     def run(self, task: Task, context: Dict[str, object]) -> Dict[str, object]:
         role = self.policy.role_for(task)
-        subagent = SubAgent(role, self.registry, allowed_for_worker(role), self.workspace, self.hooks)
+        subagent = SubAgent(role, self.registry, allowed_for_worker(role), self.workspace, self.hooks, self.session_id)
         result = subagent.run_tool(task, self.policy.args_for(task, context))
         if "products" in result:
             context["products"] = result["products"]

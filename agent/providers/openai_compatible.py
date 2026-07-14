@@ -5,13 +5,16 @@ from typing import Any, Dict, List
 
 from agent.planning.schemas import planner_schema_hint
 from agent.prompts.registry import PromptRegistry
+from agent.providers.retry import RetryPolicy
 
 
 class OpenAICompatibleJSONPlannerProvider:
-    def __init__(self):
-        self.api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("AGENT_LLM_API_KEY")
-        self.base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        self.model = os.environ.get("AGENT_PLANNER_MODEL", "gpt-4.1-mini")
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("AGENT_LLM_API_KEY")
+        self.base_url = base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        self.model = model or os.environ.get("AGENT_PLANNER_MODEL", "gpt-4.1-mini")
+        self.timeout = int(os.environ.get("AGENT_LLM_TIMEOUT", "30"))
+        self.retry = RetryPolicy(attempts=int(os.environ.get("AGENT_LLM_RETRY", "2")))
         self.prompts = PromptRegistry()
         if not self.api_key:
             raise RuntimeError("OPENAI_API_KEY or AGENT_LLM_API_KEY is required")
@@ -56,6 +59,9 @@ class OpenAICompatibleJSONPlannerProvider:
             headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        def send() -> Dict[str, Any]:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+
+        data = self.retry.run(send)
         return json.loads(data["choices"][0]["message"]["content"])

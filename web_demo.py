@@ -70,6 +70,7 @@ class Handler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(length).decode("utf-8"))
         runtime = build_runtime(".agent_data_web", bool(payload.get("mock", True)))
         plan = create_planner(False).create_plan(payload["goal"], runtime.memory.search(payload["goal"]))
+        plan.session_id = runtime.sessions.create(payload["goal"]).id
         result = PlanModeFSM(runtime.store, runtime.worker, runtime.hooks).run(plan, auto_confirm=True)
         self._send(200, json.dumps(result.to_dict(), ensure_ascii=False), "application/json; charset=utf-8")
 

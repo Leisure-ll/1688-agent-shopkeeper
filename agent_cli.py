@@ -12,8 +12,12 @@ def build_runtime(workspace: str, mock: bool = False) -> AgentRuntime:
     return create_runtime(AgentSettings.from_env(workspace=workspace, mock=mock))
 
 
-def create_planner(use_llm: bool = False):
+def create_planner(use_llm: bool = False, provider_name: str = "openai"):
     if use_llm:
+        if provider_name == "deepseek":
+            from agent.providers.deepseek import DeepSeekJSONPlannerProvider
+
+            return LLMPlanner(DeepSeekJSONPlannerProvider())
         from agent.providers.openai_compatible import OpenAICompatibleJSONPlannerProvider
 
         return LLMPlanner(OpenAICompatibleJSONPlannerProvider())
@@ -22,18 +26,22 @@ def create_planner(use_llm: bool = False):
 
 def cmd_plan(args: argparse.Namespace) -> None:
     runtime = build_runtime(args.workspace, args.mock)
-    planner = create_planner(args.llm)
+    planner = create_planner(args.llm, args.provider)
     memories = runtime.memory.search(args.goal)
     plan = planner.create_plan(args.goal, memories)
+    session = runtime.sessions.create(args.goal)
+    plan.session_id = session.id
     runtime.store.save(plan)
     print(plan_to_json(plan))
 
 
 def cmd_run(args: argparse.Namespace) -> None:
     runtime = build_runtime(args.workspace, args.mock)
-    planner = create_planner(args.llm)
+    planner = create_planner(args.llm, args.provider)
     memories = runtime.memory.search(args.goal)
     plan = planner.create_plan(args.goal, memories)
+    session = runtime.sessions.create(args.goal)
+    plan.session_id = session.id
     fsm = PlanModeFSM(runtime.store, runtime.worker, runtime.hooks)
     result = fsm.run(plan, auto_confirm=args.yes)
     payload = result.to_dict()
@@ -89,6 +97,7 @@ def main() -> None:
         p.add_argument("--workspace", default=".agent_data")
         p.add_argument("--mock", action="store_true")
         p.add_argument("--llm", action="store_true")
+        p.add_argument("--provider", default="openai", choices=["openai", "deepseek"])
         p.add_argument("--yes", action="store_true")
         p.add_argument("--json", action="store_true")
         p.set_defaults(func=cmd_plan if name == "plan" else cmd_run)

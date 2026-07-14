@@ -31,6 +31,7 @@ class Plan:
     version: int = 1
     drift_count: int = 0
     notes: List[str] = field(default_factory=list)
+    session_id: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -42,6 +43,7 @@ class Plan:
             "version": self.version,
             "drift_count": self.drift_count,
             "notes": self.notes,
+            "session_id": self.session_id,
             "tasks": [task.__dict__ for task in self.tasks],
         }
 
@@ -56,5 +58,6 @@ class Plan:
             version=int(data.get("version", 1)),
             drift_count=int(data.get("drift_count", 0)),
             notes=list(data.get("notes", [])),
+            session_id=data.get("session_id", ""),
             tasks=[Task(**task) for task in data.get("tasks", [])],
         )

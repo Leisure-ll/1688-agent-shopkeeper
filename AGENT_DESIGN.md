@@ -25,8 +25,9 @@
 - 工具白名单：按状态和 Worker 角色限制工具访问，`publish_real` 不进入普通 Worker。
 - 记忆系统：Working Memory 管理会话上下文，`MEMORY.md` 是长期记忆权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress/reflection，SQLite 和 graph JSONL 只是派生索引。
 - 观测系统：参考 Kugelblitz Hook 风格，runtime 只发事件，observer 负责落盘或上报 Langfuse。
-- Session/Workspace：参考 Kugelblitz 的 workspace/session_context，把 plan、memory、trace、approval 归入统一会话边界。
+- Session/Workspace：参考 Kugelblitz 的 workspace/session_context，把 plan、memory、trace、approval 归入统一会话边界，核心事件携带 `session_id`。
 - Prompt Registry：prompt 文件有版本号，planner 调用可记录 prompt version。
+- Provider Layer：支持 OpenAI-compatible / DeepSeek provider、timeout、retry 和 mock provider。
 - Tool Audit：工具调用记录 role、risk、task、error，和 Hook trace 形成互补。
 - MCP Adapter：以 MCP 风格暴露 tools/resources/prompts 描述，方便后续接入外部 Agent 客户端。
 
@@ -46,7 +47,7 @@ agent/
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
 ├─ observability/   # hook instrument, JSONL, Langfuse, tool audit
-├─ providers/       # OpenAI-compatible planner provider
+├─ providers/       # OpenAI-compatible/DeepSeek/mock providers and retry
 └─ ui/              # UI-facing adapters
 ```
 

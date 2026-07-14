@@ -20,6 +20,7 @@
 - Hook 观测：参考 Kugelblitz 风格，通过 Hook 捕获状态流转、checkpoint、工具调用和 SubAgent 事件，支持 JSONL 与 Langfuse。
 - Session/Workspace：为 plan、memory、trace、approval 提供统一会话和工作区边界。
 - Prompt Registry：prompt 文件带版本号，支持 planner prompt 回溯。
+- Provider Layer：支持 OpenAI-compatible / DeepSeek provider、timeout、retry 和 mock provider。
 - Tool Audit：记录工具调用、风险级别、SubAgent 角色和错误信息。
 - MCP Adapter：以 MCP 风格暴露 tools/resources/prompts 描述，便于后续接入外部 Agent 客户端。
 - Mock/Real 双模式：Mock 模式使用本地 SQLite 商品库，Real 模式包装原 1688 Skill API 能力。
@@ -40,7 +41,7 @@ agent/
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
 ├─ observability/   # hook instrument, JSONL, Langfuse, tool audit
-├─ providers/       # OpenAI-compatible planner provider
+├─ providers/       # OpenAI-compatible/DeepSeek/mock providers and retry
 └─ ui/              # UI-facing adapters
 
 scripts/            # legacy 1688 Skill API capability layer

@@ -12,6 +12,7 @@ from agent.planning.intent import IntentClassifier
 from agent.persist.plan_store import PlanStore
 from agent.planning.planner import HeuristicPlanner, LLMPlanner
 from agent.planning.validator import validate_plan_payload
+from agent.providers.retry import RetryPolicy
 from agent.prompts.registry import PromptRegistry
 from agent.config.settings import AgentSettings
 from agent.runtime.app import create_runtime
@@ -228,6 +229,28 @@ class AgentCoreTest(unittest.TestCase):
             description = MCPServerDescription(runtime).describe()
             self.assertEqual(description["name"], "1688-agent-shopkeeper")
             self.assertTrue(any(tool["name"] == "search_products" for tool in description["tools"]))
+
+    def test_retry_policy_retries_transient_failures(self):
+        state = {"calls": 0}
+
+        def flaky():
+            state["calls"] += 1
+            if state["calls"] == 1:
+                raise RuntimeError("transient")
+            return "ok"
+
+        self.assertEqual(RetryPolicy(attempts=2, backoff_seconds=0).run(flaky), "ok")
+        self.assertEqual(state["calls"], 2)
+
+    def test_session_id_is_written_to_tool_audit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            memory, _, _, store, worker, hooks = self.runtime(tmp)
+            plan = HeuristicPlanner().create_plan("查一下我有哪些店铺", [])
+            plan.session_id = "session_test"
+            result = PlanModeFSM(store, worker, hooks).run(plan, auto_confirm=True)
+            self.assertEqual(result.status, "done")
+            audit = (memory.root.parent / "observability" / "tool_audit.jsonl").read_text(encoding="utf-8")
+            self.assertIn("session_test", audit)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,22 @@
+{
+  "id": "approval_5a3e124cef",
+  "action": "publish_real",
+  "item_ids": [
+    "900000001",
+    "900000002",
+    "900000003"
+  ],
+  "shop_code": "MOCK_DOUYIN_001",
+  "status": "approved",
+  "created_at": 1784015377.0622716,
+  "decided_at": 1784015377.375281,
+  "result": {
+    "success": true,
+    "markdown": "已模拟正式铺货：3 个商品 -> MOCK_DOUYIN_001。",
+    "data": {
+      "dry_run": false,
+      "submitted_count": 3,
+      "shop_code": "MOCK_DOUYIN_001"
+    }
+  }
+}

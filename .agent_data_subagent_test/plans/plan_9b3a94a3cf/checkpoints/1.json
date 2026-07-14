@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "reason": "plan_created",
+  "plan": {
+    "id": "plan_9b3a94a3cf",
+    "name": "1688 Agent Plan: 抖店 夏季连衣裙，挑5个靠谱的",
+    "original_goal": "帮我找适合抖店卖的夏季连衣裙，挑5个靠谱的",
+    "tasks": [
+      {
+        "goal": "搜索 1688 商品：抖店 夏季连衣裙，挑5个靠谱的",
+        "action": "search_products",
+        "tool_name": "search_products",
+        "args": {
+          "query": "抖店 夏季连衣裙，挑5个靠谱的",
+          "channel": "douyin"
+        },
+        "parent_task_ids": [],
+        "id": "task_28af2c81",
+        "status": "pending",
+        "result": {},
+        "finished_reason": ""
+      },
+      {
+        "goal": "基于销量、好评率、复购率、揽收率和渠道适配度给出推荐",
+        "action": "rank_products",
+        "tool_name": "rank_products",
+        "args": {},
+        "parent_task_ids": [
+          "task_28af2c81"
+        ],
+        "id": "task_5acaed6b",
+        "status": "pending",
+        "result": {},
+        "finished_reason": ""
+      }
+    ],
+    "state": "init",
+    "version": 1,
+    "created_at": 1784001600.7852952,
+    "updated_at": 1784001600.7852952,
+    "finished_reason": ""
+  },
+  "timestamp": 1784001600.7852952
+}

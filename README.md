@@ -13,7 +13,7 @@
 - DAG 执行引擎：Plan 支持 `depends_on`，运行时会做拓扑调度、循环依赖检测和失败依赖阻断。
 - SubAgent 上下文隔离：每个 SubAgent 只获得当前任务、局部上下文和角色工具白名单。
 - 工具安全策略：按运行状态和 Worker 角色限制工具调用；正式铺货不进入普通 Worker，必须走 approval。
-- 长期记忆：`MEMORY.md` 是唯一权威数据源，Memory Pipeline 负责 extractor/dedup/conflict/compress，SQLite 仅作为派生检索索引。
+- 记忆系统：Working Memory 管理会话上下文，`MEMORY.md` 作为长期记忆权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress/reflection，SQLite 和 graph JSONL 作为派生索引。
 - Hook 观测：参考 Kugelblitz 风格，通过 Hook 捕获状态流转、checkpoint、工具调用和 SubAgent 事件，支持 JSONL 与 Langfuse。
 - Mock/Real 双模式：Mock 模式使用本地 SQLite 商品库，Real 模式包装原 1688 Skill API 能力。
 
@@ -27,7 +27,7 @@ agent/
 ├─ runtime/         # runtime factory, worker, isolated subagent
 │  └─ dag/          # task graph, scheduler, DAG executor
 ├─ tools/           # tool registry, schemas, policy, 1688 adapters
-├─ memory/          # MEMORY.md store, pipeline, retriever, writer, graph events
+├─ memory/          # working memory, MEMORY.md store, pipeline, graph/index/reflection
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
 ├─ observability/   # hook instrument, JSONL, Langfuse

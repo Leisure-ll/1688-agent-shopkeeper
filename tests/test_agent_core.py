@@ -5,6 +5,7 @@ from agent.core.fsm import PlanModeFSM
 from agent.core.hooks import AgentEventHooks
 from agent.core.state import Plan, Task
 from agent.memory.store import MemoryStore
+from agent.memory.working import WorkingMemory
 from agent.memory.writer import MemoryWriter
 from agent.persist.plan_store import PlanStore
 from agent.planning.planner import HeuristicPlanner, LLMPlanner
@@ -121,6 +122,34 @@ class AgentCoreTest(unittest.TestCase):
             self.assertEqual(second["written"], 0)
             self.assertIn("selection.product.p1001", text)
             self.assertTrue((memory.root / "memory_graph.jsonl").exists())
+
+    def test_memory_pipeline_reflects_and_queries_graph(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            memory = MemoryStore(tmp)
+            writer = MemoryWriter(memory)
+            result = writer.write(
+                "selection",
+                "Recent selected products: [{'id': 'p1001'}, {'id': 'p1002'}, {'id': 'p1003'}]",
+            )
+            self.assertTrue(result["reflected"])
+            self.assertTrue(memory.graph.query(action="upsert"))
+            self.assertTrue(memory.graph.query(action="append"))
+            self.assertIn("Selection reflection", memory.memory_md.read_text(encoding="utf-8"))
+
+    def test_memory_index_can_rebuild_from_markdown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            memory = MemoryStore(tmp)
+            memory.append("preference", "偏好高销量女装")
+            count = memory.rebuild_index()
+            self.assertGreaterEqual(count, 1)
+            self.assertEqual(memory.search("高销量")[0]["kind"], "preference")
+
+    def test_working_memory_keeps_recent_context(self):
+        working = WorkingMemory(max_items=2)
+        working.add("goal", "找连衣裙")
+        working.add("tool", "搜索商品")
+        working.add("tool", "铺货预检查")
+        self.assertEqual([item["content"] for item in working.context()], ["搜索商品", "铺货预检查"])
 
 
 if __name__ == "__main__":

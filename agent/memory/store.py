@@ -1,8 +1,10 @@
-import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+
+from agent.memory.graph_store import MemoryGraphStore
+from agent.memory.index import MemoryIndex
 
 
 class MemoryStore:
@@ -13,6 +15,8 @@ class MemoryStore:
         self.root.mkdir(parents=True, exist_ok=True)
         self.memory_md = self.root / "MEMORY.md"
         self.index = self.root / "memory_index.sqlite"
+        self.graph = MemoryGraphStore(self.root)
+        self.memory_index = MemoryIndex(self.index, self.memory_md)
         if not self.memory_md.exists():
             self.memory_md.write_text("# Long Term Memory\n\n", encoding="utf-8")
         self._init_db()
@@ -48,6 +52,7 @@ class MemoryStore:
         return rows
 
     def export_graph_event(self, event: Dict[str, object]) -> None:
-        path = self.root / "memory_graph.jsonl"
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+        self.graph.append(event)
+
+    def rebuild_index(self) -> int:
+        return self.memory_index.rebuild()

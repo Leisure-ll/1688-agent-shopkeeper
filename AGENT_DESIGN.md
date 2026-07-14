@@ -18,7 +18,7 @@
 - DAG 执行引擎：支持 `depends_on`、拓扑调度、循环依赖检测和失败依赖阻断。
 - 上下文隔离：主 Agent 规划调度，SubAgent 执行单任务，不共享完整全局上下文。
 - 工具白名单：按状态和 Worker 角色限制工具访问，`publish_real` 不进入普通 Worker。
-- 长期记忆：`MEMORY.md` 是唯一权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress，SQLite 只是派生检索索引。
+- 记忆系统：Working Memory 管理会话上下文，`MEMORY.md` 是长期记忆权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress/reflection，SQLite 和 graph JSONL 只是派生索引。
 - 观测系统：参考 Kugelblitz Hook 风格，runtime 只发事件，observer 负责落盘或上报 Langfuse。
 
 ## Structure
@@ -31,7 +31,7 @@ agent/
 ├─ runtime/         # runtime factory, worker, isolated subagent
 │  └─ dag/          # task graph, scheduler, DAG executor
 ├─ tools/           # tool registry, schemas, policy, 1688 adapters
-├─ memory/          # MEMORY.md store, pipeline, retriever, writer, graph events
+├─ memory/          # working memory, MEMORY.md store, pipeline, graph/index/reflection
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
 ├─ observability/   # hook instrument, JSONL, Langfuse

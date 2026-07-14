@@ -12,3 +12,6 @@ Allowed tools:
 Never use publish_real. Real publish must be routed through request_publish_approval.
 
 Planner output is validated before execution. Invalid plans are repaired or replaced by a deterministic fallback plan.
+
+Schema:
+{{schema}}

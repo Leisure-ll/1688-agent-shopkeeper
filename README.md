@@ -16,6 +16,9 @@
 - 工具安全策略：按运行状态和 Worker 角色限制工具调用；正式铺货不进入普通 Worker，必须走 approval。
 - 记忆系统：Working Memory 管理会话上下文，`MEMORY.md` 作为长期记忆权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress/reflection，SQLite 和 graph JSONL 作为派生索引。
 - Hook 观测：参考 Kugelblitz 风格，通过 Hook 捕获状态流转、checkpoint、工具调用和 SubAgent 事件，支持 JSONL 与 Langfuse。
+- Session/Workspace：为 plan、memory、trace、approval 提供统一会话和工作区边界。
+- Prompt Registry：prompt 文件带版本号，支持 planner prompt 回溯。
+- Tool Audit：记录工具调用、风险级别、SubAgent 角色和错误信息。
 - Mock/Real 双模式：Mock 模式使用本地 SQLite 商品库，Real 模式包装原 1688 Skill API 能力。
 
 ## Architecture
@@ -27,11 +30,12 @@ agent/
 ├─ planning/        # planner and goal-drift detection
 ├─ runtime/         # runtime factory, worker, isolated subagent
 │  └─ dag/          # task graph, scheduler, DAG executor
+├─ prompts/         # prompt registry and versioning
 ├─ tools/           # tool registry, schemas, policy, 1688 adapters
 ├─ memory/          # working memory, MEMORY.md store, pipeline, graph/index/reflection
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
-├─ observability/   # hook instrument, JSONL, Langfuse
+├─ observability/   # hook instrument, JSONL, Langfuse, tool audit
 ├─ providers/       # OpenAI-compatible planner provider
 └─ ui/              # UI-facing adapters
 

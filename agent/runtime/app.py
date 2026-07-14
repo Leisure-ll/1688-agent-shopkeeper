@@ -13,6 +13,8 @@ from agent.observability.observer import JSONLObserver
 from agent.persist.plan_store import PlanStore
 from agent.planning.intent import IntentClassifier
 from agent.runtime.worker import AgentWorker
+from agent.runtime.session import SessionStore
+from agent.runtime.workspace import AgentWorkspace
 from agent.safety.approval import ApprovalStore
 from agent.tools.mock_shopkeeper import MockShopkeeperTools
 from agent.tools.real_shopkeeper import RealShopkeeperTools
@@ -29,6 +31,8 @@ class AgentRuntime:
     hooks: Any
     store: PlanStore
     worker: AgentWorker
+    workspace: AgentWorkspace
+    sessions: SessionStore
 
 
 def make_observer(settings: AgentSettings):
@@ -41,6 +45,8 @@ def make_observer(settings: AgentSettings):
 
 
 def create_runtime(settings: AgentSettings) -> AgentRuntime:
+    workspace = AgentWorkspace(settings.workspace)
+    workspace.ensure()
     memory = MemoryStore(settings.workspace)
     writer = MemoryWriter(memory)
     retriever = MemoryRetriever(memory)
@@ -57,4 +63,5 @@ def create_runtime(settings: AgentSettings) -> AgentRuntime:
     registry.register("request_publish_approval", approvals.request_publish)
     hooks = chain(HookInstrument(make_observer(settings)))
     worker = AgentWorker(registry, settings.workspace, hooks)
-    return AgentRuntime(settings, memory, approvals, shopkeeper, registry, hooks, PlanStore(settings.workspace), worker)
+    sessions = SessionStore(workspace)
+    return AgentRuntime(settings, memory, approvals, shopkeeper, registry, hooks, PlanStore(settings.workspace), worker, workspace, sessions)

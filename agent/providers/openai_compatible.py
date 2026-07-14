@@ -4,6 +4,7 @@ import urllib.request
 from typing import Any, Dict, List
 
 from agent.planning.schemas import planner_schema_hint
+from agent.prompts.registry import PromptRegistry
 
 
 class OpenAICompatibleJSONPlannerProvider:
@@ -11,17 +12,17 @@ class OpenAICompatibleJSONPlannerProvider:
         self.api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("AGENT_LLM_API_KEY")
         self.base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
         self.model = os.environ.get("AGENT_PLANNER_MODEL", "gpt-4.1-mini")
+        self.prompts = PromptRegistry()
         if not self.api_key:
             raise RuntimeError("OPENAI_API_KEY or AGENT_LLM_API_KEY is required")
 
     def create_plan(self, goal: str, memories: List[Dict[str, str]]) -> Dict[str, Any]:
-        prompt = (
-            "You are a planner for a 1688 ecommerce agent. Return JSON only with a tasks array. "
-            "Allowed tools: memory_search, search_products, list_shops, publish_dry_run, request_publish_approval, write_memory. "
-            "Never use publish_real. Follow this schema: "
-            + json.dumps(planner_schema_hint(), ensure_ascii=False)
+        prompt = self.prompts.render(
+            "planner",
+            schema=json.dumps(planner_schema_hint(), ensure_ascii=False),
+            allowed_tools="memory_search, search_products, list_shops, publish_dry_run, request_publish_approval, write_memory",
         )
-        return self._json_chat(prompt, {"goal": goal, "memories": memories})
+        return self._json_chat(prompt["text"], {"goal": goal, "memories": memories, "prompt_version": prompt["version"]})
 
     def repair_plan(
         self,

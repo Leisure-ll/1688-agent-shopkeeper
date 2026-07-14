@@ -11,10 +11,15 @@ from agent.planning.intent import IntentClassifier
 from agent.persist.plan_store import PlanStore
 from agent.planning.planner import HeuristicPlanner, LLMPlanner
 from agent.planning.validator import validate_plan_payload
+from agent.prompts.registry import PromptRegistry
+from agent.runtime.session import SessionStore
 from agent.runtime.worker import AgentWorker
+from agent.runtime.workspace import AgentWorkspace
 from agent.safety.approval import ApprovalStore
+from agent.safety.human_gate import AutoApproveGate, DenyGate
 from agent.tools.mock_shopkeeper import MockShopkeeperTools
 from agent.tools.registry import ToolRegistry
+from agent.tools.risk import classify_tool_risk
 
 
 class AgentCoreTest(unittest.TestCase):
@@ -41,6 +46,7 @@ class AgentCoreTest(unittest.TestCase):
             result = PlanModeFSM(store, worker, hooks).run(plan, auto_confirm=True)
             self.assertEqual(result.status, "done")
             self.assertTrue((store.plan_dir(result.id) / "plan.json").exists())
+            self.assertTrue((memory.root.parent / "observability" / "tool_audit.jsonl").exists())
             self.assertIn("Recent selected products", memory.memory_md.read_text(encoding="utf-8"))
 
     def test_formal_publish_requires_approval(self):
@@ -176,6 +182,28 @@ class AgentCoreTest(unittest.TestCase):
         working.add("tool", "搜索商品")
         working.add("tool", "铺货预检查")
         self.assertEqual([item["content"] for item in working.context()], ["搜索商品", "铺货预检查"])
+
+    def test_session_store_records_session_events(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = AgentWorkspace(tmp)
+            sessions = SessionStore(workspace)
+            session = sessions.create("找连衣裙")
+            sessions.append(session.id, "plan.created", {"plan_id": "p1"})
+            text = sessions.path(session.id).read_text(encoding="utf-8")
+            self.assertIn("session.created", text)
+            self.assertIn("plan.created", text)
+
+    def test_prompt_registry_versions_prompts(self):
+        prompt = PromptRegistry().render("planner", schema="{}", allowed_tools="memory_search")
+        self.assertEqual(len(prompt["version"]), 8)
+        self.assertIn("Schema:", prompt["text"])
+
+    def test_human_gate_and_tool_risk(self):
+        self.assertTrue(AutoApproveGate().wait_for_human("test", "approve?").approved)
+        self.assertFalse(DenyGate().wait_for_human("test", "approve?").approved)
+        self.assertEqual(classify_tool_risk("search_products"), "read")
+        self.assertEqual(classify_tool_risk("write_memory"), "write_low")
+        self.assertEqual(classify_tool_risk("publish_real"), "write_high")
 
 
 if __name__ == "__main__":

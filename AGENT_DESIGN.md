@@ -22,6 +22,9 @@
 - 工具白名单：按状态和 Worker 角色限制工具访问，`publish_real` 不进入普通 Worker。
 - 记忆系统：Working Memory 管理会话上下文，`MEMORY.md` 是长期记忆权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress/reflection，SQLite 和 graph JSONL 只是派生索引。
 - 观测系统：参考 Kugelblitz Hook 风格，runtime 只发事件，observer 负责落盘或上报 Langfuse。
+- Session/Workspace：参考 Kugelblitz 的 workspace/session_context，把 plan、memory、trace、approval 归入统一会话边界。
+- Prompt Registry：prompt 文件有版本号，planner 调用可记录 prompt version。
+- Tool Audit：工具调用记录 role、risk、task、error，和 Hook trace 形成互补。
 
 ## Structure
 
@@ -32,11 +35,12 @@ agent/
 ├─ planning/        # planner and goal-drift detection
 ├─ runtime/         # runtime factory, worker, isolated subagent
 │  └─ dag/          # task graph, scheduler, DAG executor
+├─ prompts/         # prompt registry and versioning
 ├─ tools/           # tool registry, schemas, policy, 1688 adapters
 ├─ memory/          # working memory, MEMORY.md store, pipeline, graph/index/reflection
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
-├─ observability/   # hook instrument, JSONL, Langfuse
+├─ observability/   # hook instrument, JSONL, Langfuse, tool audit
 ├─ providers/       # OpenAI-compatible planner provider
 └─ ui/              # UI-facing adapters
 ```

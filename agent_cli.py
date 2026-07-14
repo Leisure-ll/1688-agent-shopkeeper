@@ -47,6 +47,30 @@ def cmd_approve(args: argparse.Namespace) -> None:
     print(json.dumps({"approval": approval, "publish": result}, ensure_ascii=False, indent=2))
 
 
+def cmd_resume(args: argparse.Namespace) -> None:
+    runtime = build_runtime(args.workspace, args.mock)
+    plan = runtime.store.load_checkpoint(args.plan_id, args.checkpoint) if args.checkpoint else runtime.store.load(args.plan_id)
+    fsm = PlanModeFSM(runtime.store, runtime.worker, runtime.hooks)
+    result = fsm.run(plan, auto_confirm=args.yes)
+    payload = result.to_dict()
+    print(json.dumps(payload, ensure_ascii=False, indent=2) if args.json else summary(payload))
+
+
+def cmd_replay(args: argparse.Namespace) -> None:
+    runtime = build_runtime(args.workspace, args.mock)
+    print(json.dumps(runtime.store.replay(args.plan_id), ensure_ascii=False, indent=2))
+
+
+def cmd_list_checkpoints(args: argparse.Namespace) -> None:
+    runtime = build_runtime(args.workspace, args.mock)
+    print(json.dumps(runtime.store.list_checkpoints(args.plan_id), ensure_ascii=False, indent=2))
+
+
+def cmd_diff_plan(args: argparse.Namespace) -> None:
+    runtime = build_runtime(args.workspace, args.mock)
+    print(json.dumps(runtime.store.diff_checkpoints(args.plan_id, args.left, args.right), ensure_ascii=False, indent=2))
+
+
 def summary(plan: Dict[str, Any]) -> str:
     lines = [f"Plan {plan['id']} status={plan['status']}"]
     for task in plan["tasks"]:
@@ -73,6 +97,31 @@ def main() -> None:
     p.add_argument("--workspace", default=".agent_data")
     p.add_argument("--mock", action="store_true")
     p.set_defaults(func=cmd_approve)
+    p = sub.add_parser("resume")
+    p.add_argument("plan_id")
+    p.add_argument("--checkpoint", type=int)
+    p.add_argument("--workspace", default=".agent_data")
+    p.add_argument("--mock", action="store_true")
+    p.add_argument("--yes", action="store_true")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_resume)
+    p = sub.add_parser("replay")
+    p.add_argument("plan_id")
+    p.add_argument("--workspace", default=".agent_data")
+    p.add_argument("--mock", action="store_true")
+    p.set_defaults(func=cmd_replay)
+    p = sub.add_parser("list-checkpoints")
+    p.add_argument("plan_id")
+    p.add_argument("--workspace", default=".agent_data")
+    p.add_argument("--mock", action="store_true")
+    p.set_defaults(func=cmd_list_checkpoints)
+    p = sub.add_parser("diff-plan")
+    p.add_argument("plan_id")
+    p.add_argument("--left", type=int, required=True)
+    p.add_argument("--right", type=int, required=True)
+    p.add_argument("--workspace", default=".agent_data")
+    p.add_argument("--mock", action="store_true")
+    p.set_defaults(func=cmd_diff_plan)
     args = parser.parse_args()
     args.func(args)
 

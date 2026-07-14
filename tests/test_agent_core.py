@@ -7,11 +7,14 @@ from agent.core.state import Plan, Task
 from agent.memory.store import MemoryStore
 from agent.memory.working import WorkingMemory
 from agent.memory.writer import MemoryWriter
+from agent.mcp.server import MCPServerDescription
 from agent.planning.intent import IntentClassifier
 from agent.persist.plan_store import PlanStore
 from agent.planning.planner import HeuristicPlanner, LLMPlanner
 from agent.planning.validator import validate_plan_payload
 from agent.prompts.registry import PromptRegistry
+from agent.config.settings import AgentSettings
+from agent.runtime.app import create_runtime
 from agent.runtime.session import SessionStore
 from agent.runtime.worker import AgentWorker
 from agent.runtime.workspace import AgentWorkspace
@@ -204,6 +207,27 @@ class AgentCoreTest(unittest.TestCase):
         self.assertEqual(classify_tool_risk("search_products"), "read")
         self.assertEqual(classify_tool_risk("write_memory"), "write_low")
         self.assertEqual(classify_tool_risk("publish_real"), "write_high")
+
+    def test_plan_store_replay_and_diff(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = PlanStore(tmp)
+            plan = Plan("plan_replay", "测试", "init", [Task("t1", "查记忆", "memory_search")])
+            store.checkpoint(plan, "created")
+            plan.tasks[0].status = "done"
+            store.checkpoint(plan, "task done")
+            self.assertEqual(len(store.list_checkpoints(plan.id)), 2)
+            self.assertEqual(len(store.replay(plan.id)), 2)
+            diff = store.diff_checkpoints(plan.id, 2, 3)
+            self.assertEqual(diff["tasks"][0]["change"], "updated")
+
+    def test_runtime_tools_and_mcp_description(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = create_runtime(AgentSettings.from_env(workspace=tmp, mock=True))
+            self.assertIn("get_plan_status", runtime.registry.names())
+            self.assertIn("get_memory_graph", runtime.registry.names())
+            description = MCPServerDescription(runtime).describe()
+            self.assertEqual(description["name"], "1688-agent-shopkeeper")
+            self.assertTrue(any(tool["name"] == "search_products" for tool in description["tools"]))
 
 
 if __name__ == "__main__":

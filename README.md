@@ -12,6 +12,8 @@
 - Intent 路由：`intent` 状态先调用 `classify_intent`，区分 simple/complex/risky，再生成不同任务规模。
 - Planner/Worker 分离：Planner 只负责规划，Worker 根据任务动态创建 SubAgent 执行。
 - DAG 执行引擎：Plan 支持 `depends_on`，运行时会做拓扑调度、循环依赖检测和失败依赖阻断。
+- Checkpoint 恢复：支持 checkpoint list、replay、diff 和 resume。
+- Adapt 状态：任务失败后进入 `updating`，可重置失败任务并等待确认或自动恢复。
 - SubAgent 上下文隔离：每个 SubAgent 只获得当前任务、局部上下文和角色工具白名单。
 - 工具安全策略：按运行状态和 Worker 角色限制工具调用；正式铺货不进入普通 Worker，必须走 approval。
 - 记忆系统：Working Memory 管理会话上下文，`MEMORY.md` 作为长期记忆权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress/reflection，SQLite 和 graph JSONL 作为派生索引。
@@ -19,6 +21,7 @@
 - Session/Workspace：为 plan、memory、trace、approval 提供统一会话和工作区边界。
 - Prompt Registry：prompt 文件带版本号，支持 planner prompt 回溯。
 - Tool Audit：记录工具调用、风险级别、SubAgent 角色和错误信息。
+- MCP Adapter：以 MCP 风格暴露 tools/resources/prompts 描述，便于后续接入外部 Agent 客户端。
 - Mock/Real 双模式：Mock 模式使用本地 SQLite 商品库，Real 模式包装原 1688 Skill API 能力。
 
 ## Architecture
@@ -33,6 +36,7 @@ agent/
 ├─ prompts/         # prompt registry and versioning
 ├─ tools/           # tool registry, schemas, policy, 1688 adapters
 ├─ memory/          # working memory, MEMORY.md store, pipeline, graph/index/reflection
+├─ mcp/             # MCP-style tools/resources/prompts adapters
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
 ├─ observability/   # hook instrument, JSONL, Langfuse, tool audit
@@ -86,6 +90,15 @@ python agent_cli.py run "帮我找适合抖店卖的夏季连衣裙，挑5个靠
 ```bash
 python agent_cli.py run "帮我正式铺货夏季连衣裙" --mock --yes --json
 python agent_cli.py approve approval_xxx --mock
+```
+
+Checkpoint 操作：
+
+```bash
+python agent_cli.py list-checkpoints plan_xxx --workspace .agent_data
+python agent_cli.py replay plan_xxx --workspace .agent_data
+python agent_cli.py diff-plan plan_xxx --left 2 --right 8 --workspace .agent_data
+python agent_cli.py resume plan_xxx --checkpoint 5 --mock --yes --workspace .agent_data
 ```
 
 ## Observability

@@ -4,6 +4,7 @@ from typing import Dict
 from agent.core.hooks import AgentEventHooks
 from agent.core.state import Plan, Task
 from agent.persist.plan_store import PlanStore
+from agent.planning.adaptor import PlanAdaptor
 from agent.planning.goal_drift import detect_goal_drift
 from agent.runtime.dag.executor import DAGPlanExecutor
 from agent.runtime.dag.graph import DAGValidationError
@@ -18,6 +19,7 @@ class PlanModeFSM:
         self.store = store
         self.worker = worker
         self.hooks = hooks
+        self.adaptor = PlanAdaptor()
 
     def transition(self, plan: Plan, to_state: str, reason: str) -> None:
         if to_state not in self.STATES:
@@ -57,7 +59,20 @@ class PlanModeFSM:
         try:
             executor.run(plan, context)
         except (DAGValidationError, Exception) as exc:
-            self.transition(plan, "failed", str(exc))
+            self.transition(plan, "updating", str(exc))
+            if not self.adaptor.adapt(plan, str(exc)):
+                self.transition(plan, "failed", "adaptation unavailable")
+                return plan
+            if not auto_confirm:
+                return plan
+            self.transition(plan, "confirmed", "adapted plan auto confirmed")
+            self.transition(plan, "doing", "resume adapted plan")
+            try:
+                executor.run(plan, context)
+            except Exception as retry_exc:
+                self.transition(plan, "failed", str(retry_exc))
+                return plan
+            self.transition(plan, "done", "adapted plan completed")
             return plan
         self.transition(plan, "done", "all tasks completed")
         return plan

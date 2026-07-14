@@ -19,6 +19,7 @@ from agent.safety.approval import ApprovalStore
 from agent.tools.mock_shopkeeper import MockShopkeeperTools
 from agent.tools.real_shopkeeper import RealShopkeeperTools
 from agent.tools.registry import ToolRegistry
+from agent.tools.runtime_tools import RuntimeTools
 
 
 @dataclass
@@ -53,6 +54,7 @@ def create_runtime(settings: AgentSettings) -> AgentRuntime:
     approvals = ApprovalStore(settings.workspace)
     shopkeeper = MockShopkeeperTools(settings.workspace) if settings.mock else RealShopkeeperTools()
     intent_classifier = IntentClassifier()
+    runtime_tools = RuntimeTools(PlanStore(settings.workspace), memory)
     registry = ToolRegistry()
     registry.register("classify_intent", lambda goal: intent_classifier.classify(goal))
     registry.register("search_products", shopkeeper.search_products)
@@ -61,6 +63,9 @@ def create_runtime(settings: AgentSettings) -> AgentRuntime:
     registry.register("write_memory", writer.write)
     registry.register("memory_search", lambda query, limit=5: {"memories": retriever.retrieve(query, limit)})
     registry.register("request_publish_approval", approvals.request_publish)
+    registry.register("get_plan_status", runtime_tools.get_plan_status)
+    registry.register("list_checkpoints", runtime_tools.list_checkpoints)
+    registry.register("get_memory_graph", runtime_tools.get_memory_graph)
     hooks = chain(HookInstrument(make_observer(settings)))
     worker = AgentWorker(registry, settings.workspace, hooks)
     sessions = SessionStore(workspace)

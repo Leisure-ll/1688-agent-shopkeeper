@@ -11,6 +11,8 @@ class DeterministicWorkerPolicy:
     def role_for(self, task: Task) -> str:
         if task.tool == "classify_intent":
             return "router"
+        if task.tool in {"get_plan_status", "list_checkpoints", "get_memory_graph"}:
+            return "runtime"
         if task.tool in {"search_products", "memory_search"}:
             return "selector"
         if task.tool == "list_shops":

@@ -1,0 +1,28 @@
+scripts/test.py
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.qoder
+
+# 环境变量配置（可能包含敏感信息）
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 数据文件已迁移到 workspace/1688-skill-data/，忽略 skill 目录内的旧数据
+.agent_data*/
+
+publish-clawhub.sh

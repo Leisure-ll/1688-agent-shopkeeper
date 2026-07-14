@@ -2,6 +2,10 @@
 
 面向 1688 选品、店铺查询和铺货预检查场景的垂直电商 Agent 项目。项目基于原 `1688-shopkeeper` Skill 的真实业务能力层，新增 Agent Runtime、Plan 模式状态机、SubAgent 上下文隔离、长期记忆、安全审批和 Hook 观测，用于展示 Agent 开发岗位所需的工程能力。
 
+## Source
+
+本项目基于开源项目 [next-1688/1688-shopkeeper](https://github.com/next-1688/1688-shopkeeper) 改造而来。原项目提供 1688 商品搜索、店铺查询、铺货等 Skill 能力；本项目在其业务能力层之上重构为垂直电商 Agent Runtime，重点补充 Plan 模式、SubAgent、记忆、安全审批和观测能力。
+
 ## Highlights
 
 - Plan 模式状态机：支持 `intent/init/confirmed/doing/updating/done/failed/rejected` 流转、任务 checkpoint 和失败状态保存。

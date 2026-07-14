@@ -9,7 +9,6 @@
 # key: 对外暴露的渠道名（用户输入 / CLI 参数 / 中文别名）
 # value: 1688 API 实际接受的 channel 值
 
-import os
 from typing import Dict
 
 CHANNEL_MAP: Dict[str, str] = {

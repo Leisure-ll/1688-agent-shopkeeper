@@ -1,88 +1,111 @@
-# 🛒 1688-shopkeeper
+# 1688 Agent Shopkeeper
 
-1688 AI店长 —— 帮你从 1688 找到好货，一键铺到抖店、拼多多、小红书、淘宝等下游店铺。
+面向 1688 选品、店铺查询和铺货预检查场景的垂直电商 Agent 项目。项目基于原 `1688-shopkeeper` Skill 的真实业务能力层，新增 Agent Runtime、Plan 模式状态机、SubAgent 上下文隔离、长期记忆、安全审批和 Hook 观测，用于展示 Agent 开发岗位所需的工程能力。
 
-## 能做什么
+## Highlights
 
-- **选品找货**：告诉 AI 你想卖什么，自动从 1688 搜索并推荐优质货源
-- **商品详情**：按商品 ID 查看标题、价格、类目、SKU、属性与商家信息
-- **一键铺货**：选好商品后直接铺到你的店铺，支持抖店、拼多多、小红书、淘宝
-- **店铺管理**：查看已绑定的店铺状态和授权情况
-- **商机与趋势**：即时商机热榜；按关键词看类目/行业趋势与价格分布
-- **经营日报**：生成店铺经营日报与主营商品选品建议
-- **经营问答**：定价策略、运费模板、选品避坑、新店起步等常见问题都能问
+- Plan 模式状态机：支持 `intent/init/confirmed/doing/updating/done/failed/rejected` 流转、任务 checkpoint 和失败状态保存。
+- Planner/Worker 分离：Planner 只负责规划，Worker 根据任务动态创建 SubAgent 执行。
+- SubAgent 上下文隔离：每个 SubAgent 只获得当前任务、局部上下文和角色工具白名单。
+- 工具安全策略：按运行状态和 Worker 角色限制工具调用；正式铺货不进入普通 Worker，必须走 approval。
+- 长期记忆：`MEMORY.md` 是唯一权威数据源，SQLite 仅作为派生检索索引。
+- Hook 观测：参考 Kugelblitz 风格，通过 Hook 捕获状态流转、checkpoint、工具调用和 SubAgent 事件，支持 JSONL 与 Langfuse。
+- Mock/Real 双模式：Mock 模式使用本地 SQLite 商品库，Real 模式包装原 1688 Skill API 能力。
 
-## 安装
-
-在 Claw 对话框里直接输入下面这段话，让 OpenClaw 帮你自动安装：
+## Architecture
 
 ```text
-请帮我安装这个 skill：https://github.com/next-1688/1688-shopkeeper.git
+agent/
+├─ config/          # runtime/env settings
+├─ core/            # Plan/Task state, FSM, hooks
+├─ planning/        # planner and goal-drift detection
+├─ runtime/         # runtime factory, worker, isolated subagent
+├─ tools/           # tool registry, schemas, policy, 1688 adapters
+├─ memory/          # MEMORY.md store, retriever, writer, graph events
+├─ persist/         # plan store and checkpoints
+├─ safety/          # approval workflow
+├─ observability/   # hook instrument, JSONL, Langfuse
+├─ providers/       # OpenAI-compatible planner provider
+└─ ui/              # UI-facing adapters
+
+scripts/            # legacy 1688 Skill API capability layer
+docs/               # design docs and legacy Skill references
+prompts/            # planner/memory/reviewer prompts
+tests/              # core Agent tests
 ```
 
-## 使用前准备
+详细设计见 [AGENT_DESIGN.md](AGENT_DESIGN.md)。
 
-1. 下载 [**1688 AI版 APP**](https://air.1688.com/kapp/1688-ai-app/pages/home?from=1688-shopkeeper)
-2. 打开 APP 首页，点击「一键部署开店Claw，全自动化赚钱🦞」
-3. 进入页面复制你的 AK（Access Key）
-4. 对 AI 说："我的AK是 xxx"
+## Quick Start
 
-配置完成后就可以开始选品铺货了。
-
-## 快速上手
-
-直接用自然语言和 AI 对话即可：
-
-- "帮我找一些夏季连衣裙，适合抖店卖的"
-- "把刚才搜到的商品铺到我的店铺"
-- "查一下我绑定了哪些店铺"
-- "新手开店应该怎么选品"
-- "最近有什么热门商机"
-- "大码女装在 1688 上的趋势怎么样"
-- "给我一份今天的店铺经营日报"
-
-## 命令行（CLI）
-
-本仓库提供统一入口 `cli.py`，需本机已安装 **Python 3**。环境变量 `ALI_1688_AK` 或由命令 `configure` 写入的配置需与 1688 AI 版 APP 中 AK 一致。
+Mock 模式不需要 API Key，适合本地演示 Agent 流程：
 
 ```bash
-python3 cli.py <command> [options]
+python agent_cli.py run "帮我找适合抖店卖的夏季连衣裙，挑5个靠谱的并铺货" --mock --yes
 ```
 
-| 命令 | 说明 | 示例 |
-|------|------|------|
-| `search` | 搜商品 | `python3 cli.py search --query "夏季连衣裙" --channel douyin` |
-| `prod_detail` | 商品详情 | `python3 cli.py prod_detail --item-ids "991122553819,894138137003"` |
-| `shops` | 查绑定店铺 | `python3 cli.py shops` |
-| `publish` | 铺货 | `python3 cli.py publish --shop-code CODE --data-id ID` |
-| `opportunities` | 商机热榜 | `python3 cli.py opportunities` |
-| `trend` | 趋势洞察 | `python3 cli.py trend --query "大码女装"` |
-| `shop_daily` | 店铺经营日报 | `python3 cli.py shop_daily` |
-| `configure` | 配置 AK | `python3 cli.py configure YOUR_AK` |
-| `check` | 检查配置 | `python3 cli.py check` |
+启动用户端页面：
 
-所有命令 stdout 为 JSON：`{"success": bool, "markdown": str, "data": {...}}`。人类可读说明一般在 `markdown` 字段。**Agent / Skill 编排约定**见根目录 [`SKILL.md`](./SKILL.md)（含安全规则、异常处理与各能力参考文档路径）。
+```bash
+python web_demo.py
+```
 
-## 支持平台
+打开：
 
-| 平台 | 选品 | 铺货 |
-|------|------|------|
-| 抖店 | ✅ | ✅ |
-| 拼多多 | ✅ | ✅ |
-| 小红书 | ✅ | ✅ |
-| 淘宝 | ✅ | ✅ |
+```text
+http://127.0.0.1:8765
+```
 
-## 常见问题
+## CLI
 
-**Q: AK 是什么？怎么获取？**
-AK 是你访问 1688 平台的身份凭证。在 1688 AI版 APP 中获取，具体步骤见上方「使用前准备」。
+生成计划但不执行：
 
-**Q: 收费吗？**
-选品和铺货功能限时免费，具体费用以 1688 平台规则为准。
+```bash
+python agent_cli.py plan "帮我找适合抖店卖的夏季连衣裙，挑5个靠谱的并铺货" --mock
+```
 
-**Q: 支持哪些店铺类型？**
-支持通过 1688 AI版 APP 绑定的抖店、拼多多、小红书、淘宝店铺。
+自动确认并执行：
 
-## 反馈与支持
+```bash
+python agent_cli.py run "帮我找适合抖店卖的夏季连衣裙，挑5个靠谱的并铺货" --mock --yes --json
+```
 
-使用中遇到问题，可以在 1688 AI版 APP 中联系客服。
+正式铺货会创建审批，而不是直接写入：
+
+```bash
+python agent_cli.py run "帮我正式铺货夏季连衣裙" --mock --yes --json
+python agent_cli.py approve approval_xxx --mock
+```
+
+## Observability
+
+默认观测输出到 `.agent_data*/observability/*.jsonl`。
+
+接入 Langfuse：
+
+```bash
+set AGENT_OBSERVER=langfuse
+set LANGFUSE_HOST=https://cloud.langfuse.com
+set LANGFUSE_PUBLIC_KEY=your_public_key
+set LANGFUSE_SECRET_KEY=your_secret_key
+```
+
+## Real 1688 Mode
+
+`scripts/` 是原始 `1688-shopkeeper` 的真实业务能力层，包含 AK 配置、HTTP 请求、商品搜索、店铺查询、铺货等能力。Agent 的真实模式通过 `agent/tools/real_shopkeeper.py` 包装调用这些能力。
+
+Real 模式需要先配置 1688/OpenClaw AK，Mock 模式不需要。
+
+## Tests
+
+```bash
+python -m compileall agent agent_cli.py web_demo.py tests
+python -m unittest discover -s tests -v
+```
+
+## Resume Bullets
+
+- 设计垂直电商 Agent 的 Plan 模式状态机，将自然语言经营目标拆解为可 checkpoint 的任务流，并支持失败恢复和目标漂移检测。
+- 构建 `MEMORY.md + SQLite` 长期记忆体系，以 Markdown 作为权威源、SQLite 作为派生索引，支持选品策略沉淀和检索增强。
+- 实现 Planner/Worker/SubAgent 分层架构，通过动态 SubAgent 和工具白名单实现上下文隔离与越权调用防护。
+- 参考 Kugelblitz Hook 风格实现 Agent 观测链路，统一捕获状态流转、工具调用、checkpoint 和 SubAgent 事件，并支持 Langfuse 上报。

@@ -1,5 +1,2 @@
-"""Agent layer for the 1688 shopkeeper demo project."""
+"""Agent runtime for the 1688 shopkeeper interview project."""
 
-from .fsm import ShopkeeperAgent
-
-__all__ = ["ShopkeeperAgent"]

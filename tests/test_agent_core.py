@@ -111,6 +111,15 @@ class AgentCoreTest(unittest.TestCase):
             result = PlanModeFSM(store, worker, hooks).run(plan, auto_confirm=True)
             self.assertEqual(result.status, "failed")
 
+    def test_state_whitelist_blocks_forbidden_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, _, _, store, worker, hooks = self.runtime(tmp)
+            task = Task("danger", "危险正式铺货", "publish_real", {})
+            plan = Plan("plan_state_policy_test", "绕过审批直接铺货", "init", [task])
+            result = PlanModeFSM(store, worker, hooks).run(plan, auto_confirm=True)
+            self.assertEqual(result.status, "failed")
+            self.assertIn("not allowed in state doing", task.error)
+
     def test_memory_pipeline_extracts_and_dedups_facts(self):
         with tempfile.TemporaryDirectory() as tmp:
             memory = MemoryStore(tmp)

@@ -8,6 +8,7 @@ from agent.planning.goal_drift import detect_goal_drift
 from agent.runtime.dag.executor import DAGPlanExecutor
 from agent.runtime.dag.graph import DAGValidationError
 from agent.runtime.worker import AgentWorker
+from agent.tools.policy import allowed_for_state
 
 
 class PlanModeFSM:
@@ -58,6 +59,8 @@ class PlanModeFSM:
         return plan
 
     def _run_task(self, plan: Plan, task, context: Dict[str, object]) -> Dict[str, object]:
+        if task.tool not in allowed_for_state(plan.status):
+            raise PermissionError(f"tool {task.tool} is not allowed in state {plan.status}")
         result = self.worker.run(task, context)
         self.detect_goal_drift(plan, result)
         return result

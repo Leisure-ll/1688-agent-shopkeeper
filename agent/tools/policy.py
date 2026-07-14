@@ -17,3 +17,7 @@ WORKER_TOOL_WHITELIST = {
 
 def allowed_for_worker(role: str):
     return WORKER_TOOL_WHITELIST[role]
+
+
+def allowed_for_state(state: str):
+    return STATE_TOOL_WHITELIST.get(state, set())

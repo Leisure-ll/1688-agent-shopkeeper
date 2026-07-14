@@ -3,6 +3,8 @@ import os
 import urllib.request
 from typing import Any, Dict, List
 
+from agent.planning.schemas import planner_schema_hint
+
 
 class OpenAICompatibleJSONPlannerProvider:
     def __init__(self):
@@ -15,13 +17,35 @@ class OpenAICompatibleJSONPlannerProvider:
     def create_plan(self, goal: str, memories: List[Dict[str, str]]) -> Dict[str, Any]:
         prompt = (
             "You are a planner for a 1688 ecommerce agent. Return JSON only with a tasks array. "
-            "Allowed tools: memory_search, search_products, list_shops, publish_dry_run, request_publish_approval, write_memory."
+            "Allowed tools: memory_search, search_products, list_shops, publish_dry_run, request_publish_approval, write_memory. "
+            "Never use publish_real. Follow this schema: "
+            + json.dumps(planner_schema_hint(), ensure_ascii=False)
         )
+        return self._json_chat(prompt, {"goal": goal, "memories": memories})
+
+    def repair_plan(
+        self,
+        goal: str,
+        memories: List[Dict[str, str]],
+        invalid_plan: Dict[str, Any],
+        issues: List[Dict[str, str]],
+    ) -> Dict[str, Any]:
+        prompt = (
+            "Repair the invalid 1688 ecommerce agent plan. Return JSON only. "
+            "Do not execute tools. Never use publish_real. Keep the user goal intact. "
+            "Schema: "
+            + json.dumps(planner_schema_hint(), ensure_ascii=False)
+            + "\nValidation issues:\n"
+            + "\n".join(f"- {issue.get('path')}: {issue.get('message')}" for issue in issues)
+        )
+        return self._json_chat(prompt, {"goal": goal, "memories": memories, "invalid_plan": invalid_plan})
+
+    def _json_chat(self, system_prompt: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         body = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": json.dumps({"goal": goal, "memories": memories}, ensure_ascii=False)},
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
             "response_format": {"type": "json_object"},
         }

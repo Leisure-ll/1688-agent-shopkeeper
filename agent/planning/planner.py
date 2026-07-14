@@ -2,6 +2,9 @@ import json
 from typing import Any, Dict, List, Protocol
 
 from agent.core.state import Plan, Task, new_id
+from agent.planning.repair import FallbackPlanRepairer
+from agent.planning.schemas import PlanValidationIssue
+from agent.planning.validator import build_plan_from_payload, validate_plan_payload
 
 
 class JSONPlannerProvider(Protocol):
@@ -27,20 +30,37 @@ class HeuristicPlanner:
 class LLMPlanner:
     def __init__(self, provider: JSONPlannerProvider):
         self.provider = provider
+        self.repairer = FallbackPlanRepairer()
 
     def create_plan(self, goal: str, memories: List[Dict[str, str]] = None) -> Plan:
+        memories = memories or []
         data = self.provider.create_plan(goal, memories or [])
-        tasks = [
-            Task(
-                id=item.get("id") or new_id("task"),
-                title=item["title"],
-                tool=item["tool"],
-                args=item.get("args", {}),
-                depends_on=item.get("depends_on", []),
-            )
-            for item in data["tasks"]
-        ]
-        return Plan(id=data.get("id") or new_id("plan"), goal=goal, status="init", tasks=tasks, notes=["llm planner"])
+        issues = validate_plan_payload(data)
+        if not issues:
+            return build_plan_from_payload(data, goal, "llm planner")
+
+        repaired = self._repair_with_provider(goal, memories, data, issues)
+        if repaired:
+            repaired_issues = validate_plan_payload(repaired)
+            if not repaired_issues:
+                plan = build_plan_from_payload(repaired, goal, "llm planner repaired")
+                plan.notes.extend(f"original issue: {issue.path}: {issue.message}" for issue in issues)
+                return plan
+            issues = repaired_issues
+
+        return self.repairer.repair(goal, memories, issues)
+
+    def _repair_with_provider(
+        self,
+        goal: str,
+        memories: List[Dict[str, str]],
+        data: Dict[str, Any],
+        issues: List[PlanValidationIssue],
+    ) -> Dict[str, Any]:
+        repair_plan = getattr(self.provider, "repair_plan", None)
+        if not repair_plan:
+            return {}
+        return repair_plan(goal, memories, data, [issue.to_dict() for issue in issues])
 
 
 def plan_to_json(plan: Plan) -> str:

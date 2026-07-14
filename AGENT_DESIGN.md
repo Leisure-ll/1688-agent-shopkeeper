@@ -7,16 +7,18 @@
 1. 用户输入自然语言目标，例如“帮我找适合抖店卖的夏季连衣裙，挑 5 个靠谱的并铺货”。
 2. Planner 只负责生成任务计划，输出可校验任务列表。
 3. PlanModeFSM 驱动 `intent/init/confirmed/doing/updating/done/failed/rejected` 状态流转，并在关键节点写 checkpoint。
-4. Worker 按任务动态创建 SubAgent，SubAgent 只拿到当前任务上下文和角色工具白名单。
-5. 写操作默认只做 dry-run；正式铺货必须先创建 approval，再通过 `approve` 命令执行。
-6. Hooks 捕获状态流转、计划生成、checkpoint、SubAgent、工具调用等事件，并导出到 JSONL 或 Langfuse。
+4. DAG executor 根据任务依赖做拓扑调度，检测循环依赖，并在失败时阻断下游任务。
+5. Worker 按任务动态创建 SubAgent，SubAgent 只拿到当前任务上下文和角色工具白名单。
+6. 写操作默认只做 dry-run；正式铺货必须先创建 approval，再通过 `approve` 命令执行。
+7. Hooks 捕获状态流转、计划生成、checkpoint、SubAgent、工具调用等事件，并导出到 JSONL 或 Langfuse。
 
 ## Interview Highlights
 
 - Plan 模式状态机：任务 DAG、checkpoint、失败恢复、目标漂移检测。
+- DAG 执行引擎：支持 `depends_on`、拓扑调度、循环依赖检测和失败依赖阻断。
 - 上下文隔离：主 Agent 规划调度，SubAgent 执行单任务，不共享完整全局上下文。
 - 工具白名单：按状态和 Worker 角色限制工具访问，`publish_real` 不进入普通 Worker。
-- 长期记忆：`MEMORY.md` 是唯一权威源，SQLite 只是派生检索索引。
+- 长期记忆：`MEMORY.md` 是唯一权威源，Memory Pipeline 负责 extractor/dedup/conflict/compress，SQLite 只是派生检索索引。
 - 观测系统：参考 Kugelblitz Hook 风格，runtime 只发事件，observer 负责落盘或上报 Langfuse。
 
 ## Structure
@@ -27,8 +29,9 @@ agent/
 ├─ core/            # Plan/Task state, FSM, hooks
 ├─ planning/        # planner and goal-drift detection
 ├─ runtime/         # runtime factory, worker, isolated subagent
+│  └─ dag/          # task graph, scheduler, DAG executor
 ├─ tools/           # tool registry, schemas, policy, 1688 adapters
-├─ memory/          # MEMORY.md store, retriever, writer, graph events
+├─ memory/          # MEMORY.md store, pipeline, retriever, writer, graph events
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
 ├─ observability/   # hook instrument, JSONL, Langfuse

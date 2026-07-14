@@ -10,9 +10,10 @@
 
 - Plan 模式状态机：支持 `intent/init/confirmed/doing/updating/done/failed/rejected` 流转、任务 checkpoint 和失败状态保存。
 - Planner/Worker 分离：Planner 只负责规划，Worker 根据任务动态创建 SubAgent 执行。
+- DAG 执行引擎：Plan 支持 `depends_on`，运行时会做拓扑调度、循环依赖检测和失败依赖阻断。
 - SubAgent 上下文隔离：每个 SubAgent 只获得当前任务、局部上下文和角色工具白名单。
 - 工具安全策略：按运行状态和 Worker 角色限制工具调用；正式铺货不进入普通 Worker，必须走 approval。
-- 长期记忆：`MEMORY.md` 是唯一权威数据源，SQLite 仅作为派生检索索引。
+- 长期记忆：`MEMORY.md` 是唯一权威数据源，Memory Pipeline 负责 extractor/dedup/conflict/compress，SQLite 仅作为派生检索索引。
 - Hook 观测：参考 Kugelblitz 风格，通过 Hook 捕获状态流转、checkpoint、工具调用和 SubAgent 事件，支持 JSONL 与 Langfuse。
 - Mock/Real 双模式：Mock 模式使用本地 SQLite 商品库，Real 模式包装原 1688 Skill API 能力。
 
@@ -24,8 +25,9 @@ agent/
 ├─ core/            # Plan/Task state, FSM, hooks
 ├─ planning/        # planner and goal-drift detection
 ├─ runtime/         # runtime factory, worker, isolated subagent
+│  └─ dag/          # task graph, scheduler, DAG executor
 ├─ tools/           # tool registry, schemas, policy, 1688 adapters
-├─ memory/          # MEMORY.md store, retriever, writer, graph events
+├─ memory/          # MEMORY.md store, pipeline, retriever, writer, graph events
 ├─ persist/         # plan store and checkpoints
 ├─ safety/          # approval workflow
 ├─ observability/   # hook instrument, JSONL, Langfuse

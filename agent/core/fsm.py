@@ -5,6 +5,8 @@ from agent.core.hooks import AgentEventHooks
 from agent.core.state import Plan
 from agent.persist.plan_store import PlanStore
 from agent.planning.goal_drift import detect_goal_drift
+from agent.runtime.dag.executor import DAGPlanExecutor
+from agent.runtime.dag.graph import DAGValidationError
 from agent.runtime.worker import AgentWorker
 
 
@@ -43,20 +45,24 @@ class PlanModeFSM:
             return plan
         self.transition(plan, "doing", "start execution")
         context: Dict[str, object] = {}
-        for task in plan.tasks:
-            try:
-                task.status = "running"
-                self.hooks.on_task_updated(plan_id=plan.id, task_id=task.id, status=task.status)
-                result = self.worker.run(task, context)
-                task.result = result
-                task.status = "done"
-                self.detect_goal_drift(plan, result)
-            except Exception as exc:
-                task.error = str(exc)
-                task.status = "failed"
-                self.transition(plan, "failed", str(exc))
-                return plan
-            self.hooks.on_task_updated(plan_id=plan.id, task_id=task.id, status=task.status)
-            self.store.checkpoint(plan, f"task {task.id} {task.status}")
+        executor = DAGPlanExecutor(
+            runner=lambda task, ctx: self._run_task(plan, task, ctx),
+            on_task_update=lambda task: self._on_task_update(plan, task),
+        )
+        try:
+            executor.run(plan, context)
+        except (DAGValidationError, Exception) as exc:
+            self.transition(plan, "failed", str(exc))
+            return plan
         self.transition(plan, "done", "all tasks completed")
         return plan
+
+    def _run_task(self, plan: Plan, task, context: Dict[str, object]) -> Dict[str, object]:
+        result = self.worker.run(task, context)
+        self.detect_goal_drift(plan, result)
+        return result
+
+    def _on_task_update(self, plan: Plan, task) -> None:
+        self.hooks.on_task_updated(plan_id=plan.id, task_id=task.id, status=task.status)
+        if task.status in {"done", "failed", "blocked"}:
+            self.store.checkpoint(plan, f"task {task.id} {task.status}")

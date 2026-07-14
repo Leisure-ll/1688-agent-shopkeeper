@@ -1,10 +1,11 @@
+from agent.memory.pipeline import MemoryPipeline
 from agent.memory.store import MemoryStore
 
 
 class MemoryWriter:
     def __init__(self, store: MemoryStore):
         self.store = store
+        self.pipeline = MemoryPipeline(store)
 
     def write(self, kind: str, content: str):
-        self.store.append(kind, content)
-        return {"ok": True}
+        return self.pipeline.write(kind, content)
